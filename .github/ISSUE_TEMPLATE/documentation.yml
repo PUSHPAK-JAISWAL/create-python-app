@@ -1,0 +1,9 @@
+name: Documentation Issue
+description: Report a docs problem
+labels: [documentation]
+body:
+  - type: textarea
+    attributes:
+      label: Description
+    validations:
+      required: true
