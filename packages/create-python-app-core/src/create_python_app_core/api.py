@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 from create_python_app_core._version import __version__
@@ -32,7 +33,6 @@ def check_python_version(required: str, package_name: str) -> None:
 
 async def check_for_latest_version(package_name: str) -> str | None:
     """Fetch latest version from PyPI. Returns None on failure."""
-    # Implemented fully in #31; stub returns None until then.
     _ = package_name
     return None
 
@@ -50,10 +50,22 @@ async def create_python_app(
     transform_options: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
     | None = None,
 ) -> None:
-    """Scaffold a project. Full installer lands in #29."""
+    """Scaffold a project using the installer (#29)."""
+    from create_python_app_core.installer import scaffold_project
+
     if transform_options is not None:
         options = await transform_options(options)
-    raise NotImplementedError(
-        "create_python_app installer not implemented yet — see #29 "
-        f"(project={project_directory!r}, options_keys={list(options)})"
+
+    cache = options.get("cache_dir")
+    scaffold_project(
+        project_directory,
+        template=str(options.get("template") or ""),
+        addons=list(options.get("addons") or []),
+        extend=list(options.get("extend") or []),
+        force=bool(options.get("force", False)),
+        install=bool(options.get("install", True)),
+        offline=bool(options.get("offline", False)),
+        keep_on_failure=bool(options.get("keep_on_failure", False)),
+        cache_dir=Path(cache) if cache else None,
+        options=options,
     )
