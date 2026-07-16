@@ -2,6 +2,7 @@ name: Distribution smoke tests
 
 # Smoke-tests each published distribution channel:
 #   uvx      — PyPI via uvx
+#   docker   — pull & run ulisesjeremias/create-awesome-python-app:latest
 #   homebrew — brew install on macos-latest
 #   aur      — makepkg inside an archlinux container
 #   versions — cross-check channel versions against PyPI
@@ -29,6 +30,25 @@ jobs:
           set -euo pipefail
           uvx create-awesome-python-app@latest --version
           uvx create-awesome-python-app@latest --help | head -5
+
+  docker:
+    name: Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull image
+        run: docker pull ulisesjeremias/create-awesome-python-app:latest
+
+      - name: Verify --version
+        run: |
+          VERSION=$(docker run --rm ulisesjeremias/create-awesome-python-app:latest --version 2>&1)
+          echo "docker version: $VERSION"
+          echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || {
+            echo "::error::Unexpected version output: $VERSION"
+            exit 1
+          }
+
+      - name: Verify --help
+        run: docker run --rm ulisesjeremias/create-awesome-python-app:latest --help | head -5
 
   homebrew:
     name: Homebrew (Create-Python-App/tap)
@@ -104,6 +124,9 @@ jobs:
           PYPI=$(curl -sfL https://pypi.org/pypi/create-awesome-python-app/json | \
                  python3 -c "import json,sys; print(json.load(sys.stdin)['info']['version'])")
 
+          DOCKER=$(docker run --rm ulisesjeremias/create-awesome-python-app:latest --version 2>&1 \
+                   || echo "unavailable")
+
           HOMEBREW=$(curl -sfL \
                     https://raw.githubusercontent.com/Create-Python-App/homebrew-tap/main/Formula/create-awesome-python-app.rb | \
                     grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unavailable")
@@ -115,12 +138,15 @@ jobs:
 
           echo "Channel versions:"
           echo "  pypi:     $PYPI"
+          echo "  docker:   $DOCKER"
           echo "  homebrew: $HOMEBREW"
           echo "  aur:      $AUR"
 
-          if [ "$HOMEBREW" != "unavailable" ] && [ "$HOMEBREW" != "$PYPI" ]; then
-            echo "::warning::Version mismatch: pypi=$PYPI homebrew=$HOMEBREW"
-          fi
+          for CHANNEL_VER in "$DOCKER" "$HOMEBREW"; do
+            if [ "$CHANNEL_VER" != "unavailable" ] && [ "$CHANNEL_VER" != "$PYPI" ]; then
+              echo "::warning::Version mismatch vs pypi=$PYPI: $CHANNEL_VER"
+            fi
+          done
           if [ "$AUR" != "unavailable" ] && [ "$AUR" != "$PYPI" ]; then
             echo "::warning::Version mismatch: pypi=$PYPI aur=$AUR (AUR may lag)"
           fi

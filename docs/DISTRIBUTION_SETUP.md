@@ -40,7 +40,19 @@ Then:
 
 ## Docker Hub
 
-Create a write token and set `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`.
+Image: [`ulisesjeremias/create-awesome-python-app`](https://hub.docker.com/r/ulisesjeremias/create-awesome-python-app)
+
+Secrets (already used by CNA; reuse the same Hub account):
+
+- `DOCKERHUB_USERNAME` — e.g. `ulisesjeremias`
+- `DOCKERHUB_TOKEN` — Hub access token with write scope
+
+Verify:
+
+```bash
+gh workflow run "Publish Docker image" --repo Create-Python-App/create-python-app -f version=0.1.0
+docker run --rm ulisesjeremias/create-awesome-python-app:0.1.0 --version
+```
 
 ## AUR (`AUR_SSH_PRIVATE_KEY`, `AUR_REPO_TOKEN`)
 
