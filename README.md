@@ -26,6 +26,21 @@ uv sync
 ```
 
 
+
+## Development commands
+
+From the repo root (requires [uv](https://docs.astral.sh/uv/)):
+
+| Task | Make | Equivalent |
+|------|------|------------|
+| Install workspace | `make sync` | `uv sync` |
+| Tests | `make test` | `uv run pytest` |
+| Lint | `make lint` | `uv run ruff check .` |
+| Type-check | `make typecheck` | `uv run pyright` |
+| Build packages | `make build` | `uv build --all` |
+
+> Ruff, Pyright, and pytest are wired in Epic 2 (`#17`–`#20`). Until then, `make lint` / `test` / `typecheck` will fail if those tools are not installed yet — that is expected.
+
 ## Python version
 
 - **Pin file:** `.python-version` → `3.12`
