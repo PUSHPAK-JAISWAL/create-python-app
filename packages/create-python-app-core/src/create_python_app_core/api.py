@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import platform
+import shutil
 import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -38,9 +40,22 @@ async def check_for_latest_version(package_name: str) -> str | None:
 
 
 def print_env_info() -> None:
-    """Print environment info then exit. Full implementation in #30."""
-    print(f"create-python-app-core {__version__}")
-    print(f"Python {sys.version}")
+    """Print OS/Python/uv tooling versions for bug reports."""
+    uv = shutil.which("uv")
+    git = shutil.which("git")
+    print(f"create-python-app-core: {__version__}")
+    print(f"Python: {sys.version.split()[0]} ({sys.executable})")
+    print(f"Platform: {platform.platform()}")
+    print(f"uv: {uv or 'not found'}")
+    print(f"git: {git or 'not found'}")
+    if uv:
+        import subprocess
+
+        try:
+            out = subprocess.check_output(["uv", "--version"], text=True).strip()
+            print(f"uv version: {out}")
+        except OSError:
+            pass
     raise SystemExit(0)
 
 
