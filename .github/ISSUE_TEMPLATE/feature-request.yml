@@ -1,0 +1,13 @@
+name: Feature Request
+description: Suggest an idea
+title: "(short issue description)"
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Solution
