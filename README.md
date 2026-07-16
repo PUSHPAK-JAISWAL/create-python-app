@@ -1,8 +1,81 @@
-# create-python-app\n\n[![CI Tests](https://github.com/Create-Python-App/create-python-app/actions/workflows/test.yml/badge.svg)](https://github.com/Create-Python-App/create-python-app/actions/workflows/test.yml)
+# create-python-app
+
+[![CI Tests](https://github.com/Create-Python-App/create-python-app/actions/workflows/test.yml/badge.svg)](https://github.com/Create-Python-App/create-python-app/actions/workflows/test.yml)
 [![Lint](https://github.com/Create-Python-App/create-python-app/actions/workflows/lint.yml/badge.svg)](https://github.com/Create-Python-App/create-python-app/actions/workflows/lint.yml)
 [![Typecheck](https://github.com/Create-Python-App/create-python-app/actions/workflows/type-check.yml/badge.svg)](https://github.com/Create-Python-App/create-python-app/actions/workflows/type-check.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-<!-- PyPI / coverage badges activate after first publish -->\nComposable scaffolding CLI for production-ready Python apps.\n\n> **Status:** bootstrapping. Roadmap: [#1](https://github.com/Create-Python-App/create-python-app/issues/1).\n\n\n## Install (preview)\n\nOnce published to PyPI:\n\n```bash\nuvx create-awesome-python-app@latest my-app\n```\n\nUntil the first release, use the workspace CLI stub:\n\n```bash\nuv sync\nuv run create-awesome-python-app\n```\n\n## License\n\nMIT — see [LICENSE](./LICENSE).\n\n## Monorepo layout (uv workspaces)\n\nThis repository is a **virtual uv workspace**: the root is not published; packages live under `packages/*` and share one `uv.lock` / `.venv`.\n\n```text\ncreate-python-app/          # virtual workspace root (no [project] table)\n├── pyproject.toml          # [tool.uv.workspace] members = ["packages/*"]\n├── uv.lock\n├── .venv/                  # shared environment (gitignored later)\n└── packages/\n    ├── create-python-app-core/       # scaffolding engine\n    └── create-awesome-python-app/    # CLI (depends on core via workspace)\n```\n\n### Setup\n\n```bash\n# Requires uv: https://docs.astral.sh/uv/\nuv sync\n```\n\n\n\n## Development commands\n\nFrom the repo root (requires [uv](https://docs.astral.sh/uv/)):\n\n| Task | Make | Equivalent |\n|------|------|------------|\n| Install workspace | `make sync` | `uv sync` |\n| Tests | `make test` | `uv run pytest` |\n| Lint | `make lint` | `uv run ruff check .` |\n| Type-check | `make typecheck` | `uv run pyright` |\n| Build packages | `make build` | `uv build --all` |\n\n> Install git hooks: `uv run pre-commit install`\n>\n> Ruff, Pyright, and pytest are wired in Epic 2 (`#17`–`#20`). Until then, `make lint` / `test` / `typecheck` will fail if those tools are not installed yet — that is expected.\n\n## Python version\n\n- **Pin file:** `.python-version` → `3.12`\n- **Constraint:** every workspace member sets `requires-python = ">=3.12"`\n- **CI:** workflows (Epic 6 / #45) must install Python 3.12+ matching this pin\n\n```bash\nuv python install  # respects .python-version when needed\nuv sync\n```\n\n### Reference\n\n- [uv workspaces handbook](https://pydevtools.com/handbook/how-to/how-to-set-up-a-python-monorepo-with-uv-workspaces/)\n- Node parity: [Create-Node-App/create-node-app](https://github.com/Create-Node-App/create-node-app)\n
+
+<!-- PyPI / coverage badges activate after first publish -->
+
+Composable scaffolding CLI for production-ready Python apps.
+
+> **Status:** bootstrapping complete. Roadmap: [#1](https://github.com/Create-Python-App/create-python-app/issues/1).
+
+## Install (preview)
+
+Once published to PyPI:
+
+```bash
+uvx create-awesome-python-app@latest my-app
+```
+
+Until the first release, use the workspace CLI:
+
+```bash
+uv sync
+uv run create-awesome-python-app --help
+```
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
+
+## Monorepo layout (uv workspaces)
+
+This repository is a **virtual uv workspace**: the root is not published; packages live under `packages/*` and share one `uv.lock` / `.venv`.
+
+```text
+create-python-app/          # virtual workspace root (no [project] table)
+├── pyproject.toml          # [tool.uv.workspace] members = ["packages/*"]
+├── uv.lock
+├── .venv/
+└── packages/
+    ├── create-python-app-core/       # scaffolding engine
+    └── create-awesome-python-app/    # CLI (depends on core via workspace)
+```
+
+### Setup
+
+```bash
+# Requires uv: https://docs.astral.sh/uv/
+uv sync --group dev
+```
+
+## Development commands
+
+From the repo root (requires [uv](https://docs.astral.sh/uv/)):
+
+| Task | Make | Equivalent |
+|------|------|------------|
+| Install workspace | `make sync` | `uv sync --group dev` |
+| Tests | `make test` | `uv run pytest` |
+| Lint | `make lint` | `uv run ruff check .` |
+| Type-check | `make typecheck` | `uv run pyright` |
+| Build packages | `make build` | `uv build --all` |
+
+Install git hooks: `uv run pre-commit install`
+
+## Python version
+
+- **Pin file:** `.python-version` → `3.12`
+- **Constraint:** every workspace member sets `requires-python = ">=3.12"`
+- **CI:** workflows install Python 3.12+ matching this pin
+
+```bash
+uv python install
+uv sync --group dev
+```
+
 ## Docker
 
 ```bash
@@ -10,3 +83,7 @@ docker build -t create-awesome-python-app .
 docker run --rm create-awesome-python-app --help
 ```
 
+### Reference
+
+- [uv workspaces handbook](https://pydevtools.com/handbook/how-to/how-to-set-up-a-python-monorepo-with-uv-workspaces/)
+- Node parity: [Create-Node-App/create-node-app](https://github.com/Create-Node-App/create-node-app)
