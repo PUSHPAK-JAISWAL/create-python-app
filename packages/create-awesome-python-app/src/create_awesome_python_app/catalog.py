@@ -13,7 +13,6 @@ from typing import Any
 
 from create_python_app_core.paths import default_cache_dir, resolve_source
 from rich.console import Console
-from rich.table import Table
 
 from create_awesome_python_app import __version__
 from create_awesome_python_app.prompt_style import (
@@ -159,6 +158,17 @@ def validate_extension_compatibility(
         raise IncompatibleExtensionsError(pairs)
 
 
+@dataclass(frozen=True)
+class CategoryInfo:
+    """Catalog category with optional rich metadata (CNA parity)."""
+
+    slug: str
+    name: str
+    description: str = ""
+    details: str = ""
+    labels: tuple[str, ...] = ()
+
+
 def short_category_label(category_name: str) -> str:
     """Derive a compact badge label from a catalog category name."""
     stop_words = {"Applications", "Application", "Boilerplate"}
@@ -168,11 +178,48 @@ def short_category_label(category_name: str) -> str:
     return " ".join(words[:2]) or category_name
 
 
+def category_index(data: dict[str, Any]) -> dict[str, CategoryInfo]:
+    """Index categories by slug, including description/details/labels."""
+    out: dict[str, CategoryInfo] = {}
+    for raw in data.get("categories", []):
+        if not isinstance(raw, dict):
+            continue
+        slug = str(raw.get("slug", "")).strip()
+        if not slug:
+            continue
+        labels_raw = raw.get("labels", [])
+        labels = (
+            tuple(str(label) for label in labels_raw)
+            if isinstance(labels_raw, list)
+            else ()
+        )
+        out[slug] = CategoryInfo(
+            slug=slug,
+            name=str(raw.get("name", slug)),
+            description=str(raw.get("description", "")).strip(),
+            details=str(raw.get("details", "")).strip(),
+            labels=labels,
+        )
+    return out
+
+
+def get_category_data(data: dict[str, Any], slug: str) -> CategoryInfo | None:
+    return category_index(data).get(slug)
+
+
+def format_category_choice_title(info: CategoryInfo, extension_count: int) -> str:
+    """Human title for the interactive extension-category picker."""
+    noun = "extension" if extension_count == 1 else "extensions"
+    title = f"{info.name} ({extension_count} {noun})"
+    if info.description:
+        title = f"{title} — {info.description}"
+    if info.labels:
+        title = f"{title} · {', '.join(info.labels[:3])}"
+    return title
+
+
 def _category_map(data: dict[str, Any]) -> dict[str, str]:
-    return {
-        str(category.get("slug", "")): str(category.get("name", ""))
-        for category in data.get("categories", [])
-    }
+    return {slug: info.name for slug, info in category_index(data).items()}
 
 
 def _search_text(template: dict[str, Any], category_name: str) -> str:
@@ -471,44 +518,96 @@ def reset_catalog_cache_for_tests() -> None:
 
 def list_templates() -> None:
     data = get_catalog_data()
-    table = Table(title="Templates")
-    table.add_column("slug")
-    table.add_column("category")
-    table.add_column("type")
-    for t in data.get("templates", []):
-        table.add_row(
-            str(t.get("slug", "")),
-            str(t.get("category", "")),
-            str(t.get("type", "")),
-        )
-    console.print(table)
+    categories = category_index(data)
+    templates = [t for t in data.get("templates", []) if isinstance(t, dict)]
+
+    console.print("[bold blue]\nAvailable Templates:[/bold blue]")
+    # Preserve catalog category order, then any unknown slugs.
+    ordered_slugs = list(categories)
+    seen: set[str] = set()
+    for slug in ordered_slugs:
+        seen.add(slug)
+        group = [t for t in templates if str(t.get("category", "")) == slug]
+        if not group:
+            continue
+        info = categories[slug]
+        console.print(f"[bold green]\n{info.name}:[/bold green]")
+        if info.description:
+            console.print(f"  {info.description}")
+        if info.details:
+            console.print(f"  [dim]{info.details}[/dim]")
+        if info.labels:
+            console.print(f"  [dim]Keywords: {', '.join(info.labels)}[/dim]")
+        for template in group:
+            name = str(template.get("name", template.get("slug", "")))
+            tslug = str(template.get("slug", ""))
+            console.print(f"  [yellow]{name}[/yellow] ([cyan]{tslug}[/cyan])")
+            desc = str(template.get("description", "")).strip()
+            if desc:
+                console.print(f"    {desc}")
+            labels = template.get("labels", [])
+            if isinstance(labels, list) and labels:
+                console.print(f"    Keywords: {', '.join(str(x) for x in labels)}")
+
+    orphans = [t for t in templates if str(t.get("category", "")) not in seen]
+    if orphans:
+        console.print("[bold green]\nOther:[/bold green]")
+        for template in orphans:
+            name = str(template.get("name", template.get("slug", "")))
+            tslug = str(template.get("slug", ""))
+            console.print(f"  [yellow]{name}[/yellow] ([cyan]{tslug}[/cyan])")
 
 
 def list_addons(template_slug: str | None = None) -> None:
     data = get_catalog_data()
+    categories = category_index(data)
     template_type: str | None = None
     if template_slug:
         for t in data.get("templates", []):
-            if t.get("slug") == template_slug:
+            if isinstance(t, dict) and t.get("slug") == template_slug:
                 template_type = str(t.get("type", ""))
                 break
 
-    table = Table(title="Extensions")
-    table.add_column("slug")
-    table.add_column("category")
-    table.add_column("type")
-    for ext in data.get("extensions", data.get("addons", [])):
+    console.print("[bold blue]\nAvailable Addons:[/bold blue]")
+    if template_slug:
+        console.print(
+            f"[bold green]\nCompatible with template: {template_slug}[/bold green]"
+        )
+
+    extensions = [
+        ext
+        for ext in data.get("extensions", data.get("addons", []))
+        if isinstance(ext, dict)
+    ]
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for ext in extensions:
         ext_types = ext.get("type", [])
         if isinstance(ext_types, str):
             ext_types = [ext_types]
         if template_type and template_type not in ext_types:
             continue
-        type_label = (
-            ", ".join(ext_types) if isinstance(ext_types, list) else str(ext_types)
-        )
-        table.add_row(
-            str(ext.get("slug", "")),
-            str(ext.get("category", "")),
-            type_label,
-        )
-    console.print(table)
+        slug = str(ext.get("category", "custom"))
+        grouped.setdefault(slug, []).append(ext)
+
+    for slug in list(categories) + [s for s in grouped if s not in categories]:
+        group = grouped.get(slug)
+        if not group:
+            continue
+        info = categories.get(slug) or CategoryInfo(slug=slug, name=slug)
+        console.print(f"[bold green]\n{info.name}:[/bold green]")
+        if info.description:
+            console.print(f"  {info.description}")
+        if info.details:
+            console.print(f"  [dim]{info.details}[/dim]")
+        if info.labels:
+            console.print(f"  [dim]Keywords: {', '.join(info.labels)}[/dim]")
+        for ext in group:
+            name = str(ext.get("name", ext.get("slug", "")))
+            eslug = str(ext.get("slug", ""))
+            console.print(f"  [yellow]{name}[/yellow] ([cyan]{eslug}[/cyan])")
+            desc = str(ext.get("description", "")).strip()
+            if desc:
+                console.print(f"    {desc}")
+            labels = ext.get("labels", [])
+            if isinstance(labels, list) and labels:
+                console.print(f"    Keywords: {', '.join(str(x) for x in labels)}")

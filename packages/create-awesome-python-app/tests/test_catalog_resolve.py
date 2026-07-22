@@ -307,3 +307,32 @@ def test_find_incompatible_pairs_dedupes_symmetric_edges() -> None:
     }
     pairs = find_incompatible_pairs(["a", "b"], catalog=catalog)
     assert pairs == [("a", "b")]
+
+
+def test_category_index_includes_rich_metadata() -> None:
+    from create_awesome_python_app.catalog import (
+        category_index,
+        format_category_choice_title,
+    )
+
+    catalog = {
+        "categories": [
+            {
+                "slug": "backend-applications",
+                "name": "Backend Applications",
+                "description": "API starters",
+                "details": "FastAPI and friends",
+                "labels": ["Backend", "API"],
+            }
+        ],
+        "templates": [],
+        "extensions": [],
+    }
+    info = category_index(catalog)["backend-applications"]
+    assert info.description == "API starters"
+    assert info.details == "FastAPI and friends"
+    assert info.labels == ("Backend", "API")
+    title = format_category_choice_title(info, 2)
+    assert "Backend Applications (2 extensions)" in title
+    assert "API starters" in title
+    assert "Backend" in title

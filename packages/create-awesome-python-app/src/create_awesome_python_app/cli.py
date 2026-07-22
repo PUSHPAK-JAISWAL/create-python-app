@@ -315,12 +315,22 @@ def scaffold(
             extension_choices = build_extension_choices(interactive_catalog, template)
             grouped_extensions = group_extension_choices(extension_choices)
             if grouped_extensions:
+                from create_awesome_python_app.catalog import (
+                    CategoryInfo,
+                    category_index,
+                    format_category_choice_title,
+                )
+
+                categories = category_index(interactive_catalog)
                 category_choices = [
                     Choice(
-                        title=(
-                            f"{choices[0].category_name} "
-                            f"({len(choices)} extension"
-                            f"{'s' if len(choices) != 1 else ''})"
+                        title=format_category_choice_title(
+                            categories.get(category_slug)
+                            or CategoryInfo(
+                                slug=category_slug,
+                                name=choices[0].category_name,
+                            ),
+                            len(choices),
                         ),
                         value=category_slug,
                     )
