@@ -16,7 +16,7 @@ _CPA_ENV_VARS = (
 
 
 @pytest.fixture(autouse=True)
-def _clean_cpa_process_env() -> None:
+def _clean_cpa_process_env():
     """Clear CPA env vars that CLI helpers set via ``os.environ`` (not monkeypatch).
 
     ``apply_fixture_mode`` mutates ``os.environ`` directly. Pairing that with
