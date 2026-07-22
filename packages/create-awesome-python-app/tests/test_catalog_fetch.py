@@ -24,7 +24,7 @@ FIXTURE_PATH = (
 
 
 @pytest.fixture(autouse=True)
-def _reset_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _reset_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     reset_catalog_cache_for_tests()
     reset_fixture_root_for_tests()
     monkeypatch.setenv("CPA_CACHE_DIR", str(tmp_path / "cache"))
@@ -111,9 +111,7 @@ def test_get_catalog_data_fixture_uses_custom_dir(
         "extensions": [],
         "categories": [],
     }
-    (catalog_dir / "templates.json").write_text(
-        json.dumps(payload), encoding="utf-8"
-    )
+    (catalog_dir / "templates.json").write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setenv("CPA_CATALOG_FIXTURE", "1")
     monkeypatch.setenv("CPA_FIXTURE_DIR", str(tmp_path))
     data = get_catalog_data(force_refresh=True)

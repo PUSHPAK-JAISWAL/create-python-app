@@ -363,7 +363,7 @@ def catalog_cache_path() -> Path:
 def resolve_fixture_root() -> Path | None:
     """Resolve the repo root that contains ``fixtures/catalog/templates.json``.
 
-    Priority: ``CPA_FIXTURE_DIR`` → package-relative monorepo root → ``cwd``.
+    Priority: ``CPA_FIXTURE_DIR`` → walk-up from package → ``cwd``.
     """
     if _fixture_root_override is not _SENTINEL:
         return _fixture_root_override  # type: ignore[return-value]
@@ -372,12 +372,19 @@ def resolve_fixture_root() -> Path | None:
     if env:
         return Path(env).expanduser().resolve()
 
-    auto = _AUTO_FIXTURE_DIR
-    if (auto / "fixtures" / "catalog" / "templates.json").is_file():
-        return auto
+    def _has_fixture_catalog(root: Path) -> bool:
+        return (root / "fixtures" / "catalog" / "templates.json").is_file()
+
+    if _has_fixture_catalog(_AUTO_FIXTURE_DIR):
+        return _AUTO_FIXTURE_DIR
+
+    # Editable / site-packages layouts vary; walk up from this file.
+    for parent in Path(__file__).resolve().parents:
+        if _has_fixture_catalog(parent):
+            return parent
 
     cwd = Path.cwd()
-    if (cwd / "fixtures" / "catalog" / "templates.json").is_file():
+    if _has_fixture_catalog(cwd):
         return cwd
     return None
 
@@ -505,9 +512,7 @@ def get_catalog_data(*, force_refresh: bool = False) -> dict[str, Any]:
                 )
                 data = fixture
             else:
-                raise RuntimeError(
-                    f"Failed to load template catalog: {err}"
-                ) from err
+                raise RuntimeError(f"Failed to load template catalog: {err}") from err
 
     _memory_cache = data
     _memory_ts = time.time()

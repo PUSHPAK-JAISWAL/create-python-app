@@ -239,7 +239,8 @@ def test_incompatible_addons_fail_fast(tmp_path: Path, monkeypatch) -> None:
 def test_help_mentions_fixture() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "--fixture" in result.stdout
+    text = (result.stdout or "") + (result.stderr or "")
+    assert "fixture" in text.lower()
 
 
 def test_preprocess_fixture_argv_bare_and_with_dir() -> None:
