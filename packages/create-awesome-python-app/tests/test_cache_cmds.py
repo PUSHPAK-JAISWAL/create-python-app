@@ -198,3 +198,72 @@ def test_list_cli_shows_table(cache_root: Path) -> None:
     text = _out(result)
     assert "demo" in text
     assert "SHA" in text
+
+
+def test_cache_list_verify_doctor_json(
+    cache_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    entry = cache_root / "repos" / "demo"
+    sha = _init_git_repo(entry)
+    write_cache_meta(
+        entry,
+        CacheMeta(
+            url="https://example.com/repo.git",
+            ref="main",
+            fetched_at=time.time(),
+            commit=sha,
+        ),
+    )
+    monkeypatch.setattr(
+        "create_awesome_python_app.cache._probe_network",
+        lambda: __import__(
+            "create_awesome_python_app.cache", fromlist=["DoctorResult"]
+        ).DoctorResult(check="network", ok=True, detail="mocked"),
+    )
+
+    listed = runner.invoke(cache_app, ["list", "--json"])
+    assert listed.exit_code == 0, _out(listed)
+    payload = json.loads(listed.stdout)
+    assert payload[0]["id"] == "demo"
+    assert payload[0]["commit"] == sha
+
+    verified = runner.invoke(cache_app, ["verify", "--json"])
+    assert verified.exit_code == 0, _out(verified)
+    assert json.loads(verified.stdout)[0]["fsck_ok"] is True
+
+    doctor = runner.invoke(cache_app, ["doctor", "--json"])
+    assert doctor.exit_code == 0, _out(doctor)
+    assert any(row["check"] == "git" for row in json.loads(doctor.stdout))
+
+    outdated = runner.invoke(cache_app, ["outdated", "--json"])
+    assert outdated.exit_code == 0, _out(outdated)
+    assert isinstance(json.loads(outdated.stdout), list)
+
+
+def test_cache_clean_json_and_force(cache_root: Path) -> None:
+    import json
+
+    entry = cache_root / "repos" / "demo"
+    _init_git_repo(entry)
+
+    blocked = runner.invoke(cache_app, ["clean"])
+    assert blocked.exit_code == 0
+    assert "Non-interactive" in _out(blocked)
+    assert entry.exists()
+
+    forced = runner.invoke(cache_app, ["clean", "--json"])
+    assert forced.exit_code == 0, _out(forced)
+    payload = json.loads(forced.stdout)
+    assert str(entry) in payload["removed"]
+    assert not entry.exists()
+
+
+def test_cache_clean_force_without_json(cache_root: Path) -> None:
+    entry = cache_root / "repos" / "demo"
+    _init_git_repo(entry)
+    result = runner.invoke(cache_app, ["clean", "--force"])
+    assert result.exit_code == 0, _out(result)
+    assert "Removed" in _out(result)
+    assert not entry.exists()

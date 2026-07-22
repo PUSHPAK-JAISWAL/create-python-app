@@ -497,8 +497,29 @@ def cache_dir_cmd() -> None:
     console.print(str(default_cache_dir()))
 
 
+def _cache_json_print(payload: Any) -> None:
+    """Print machine-readable JSON to stdout (not the stderr console)."""
+    import json
+    from dataclasses import asdict, is_dataclass
+
+    def _to_jsonable(value: Any) -> Any:
+        if isinstance(value, Path):
+            return str(value)
+        if is_dataclass(value) and not isinstance(value, type):
+            return {k: _to_jsonable(v) for k, v in asdict(value).items()}
+        if isinstance(value, list):
+            return [_to_jsonable(item) for item in value]
+        if isinstance(value, dict):
+            return {k: _to_jsonable(v) for k, v in value.items()}
+        return value
+
+    typer.echo(json.dumps(_to_jsonable(payload), indent=2))
+
+
 @cache_app.command("list")
-def cache_list_cmd() -> None:
+def cache_list_cmd(
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
     from create_awesome_python_app.cache import (
         format_age,
         format_bytes,
@@ -507,6 +528,9 @@ def cache_list_cmd() -> None:
     )
 
     entries = list_cache_entries()
+    if json_out:
+        _cache_json_print(entries)
+        return
     if not entries:
         console.print("[dim]No cached templates or extensions.[/dim]")
         console.print(
@@ -541,10 +565,38 @@ def cache_list_cmd() -> None:
 def cache_clean_cmd(
     id: str | None = typer.Argument(None),
     catalog: bool = typer.Option(False, "--catalog"),
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+    force: bool = typer.Option(
+        False, "--force", "-f", help="Skip interactive confirmation"
+    ),
 ) -> None:
     from create_awesome_python_app.cache import clean_cache
 
+    # Targeted cleans (id / --catalog) never prompt.
+    if not catalog and id is None and not json_out and not force:
+        if not sys.stdin.isatty():
+            console.print(
+                "[yellow]Non-interactive shell — use --json or --force to skip "
+                "the prompt, or specify an id to target a specific entry.[/yellow]"
+            )
+            return
+        import questionary
+
+        from create_awesome_python_app.prompt_style import CPA_PROMPT_STYLE
+
+        confirmed = questionary.confirm(
+            "Remove ALL cached templates and extensions?",
+            default=False,
+            style=CPA_PROMPT_STYLE,
+        ).ask()
+        if not confirmed:
+            console.print("[dim]Clean cancelled.[/dim]")
+            return
+
     result = clean_cache(id, catalog=catalog)
+    if json_out:
+        _cache_json_print(result)
+        return
     if result.not_found:
         console.print(f"[yellow]No cache entry found for id: {id}[/yellow]")
         return
@@ -556,10 +608,18 @@ def cache_clean_cmd(
 
 
 @cache_app.command("verify")
-def cache_verify_cmd(id: str | None = typer.Argument(None)) -> None:
+def cache_verify_cmd(
+    id: str | None = typer.Argument(None),
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
     from create_awesome_python_app.cache import verify_cache
 
     results = verify_cache(id)
+    if json_out:
+        _cache_json_print(results)
+        if any(not bool(entry.fsck_ok) for entry in results):
+            raise typer.Exit(1)
+        raise typer.Exit(0)
     if not results:
         console.print("[dim]No cached entries.[/dim]")
         raise typer.Exit(0)
@@ -580,10 +640,15 @@ def cache_verify_cmd(id: str | None = typer.Argument(None)) -> None:
 
 
 @cache_app.command("outdated")
-def cache_outdated_cmd() -> None:
+def cache_outdated_cmd(
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
     from create_awesome_python_app.cache import check_outdated
 
     results = check_outdated()
+    if json_out:
+        _cache_json_print(results)
+        return
     if not results:
         console.print("[dim]No cached entries to check.[/dim]")
         return
@@ -643,10 +708,17 @@ def cache_update_cmd(id: str | None = typer.Argument(None)) -> None:
 
 
 @cache_app.command("doctor")
-def cache_doctor_cmd() -> None:
+def cache_doctor_cmd(
+    json_out: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
     from create_awesome_python_app.cache import run_doctor
 
     results = run_doctor()
+    if json_out:
+        _cache_json_print(results)
+        if any(not row.ok for row in results):
+            raise typer.Exit(1)
+        raise typer.Exit(0)
     all_ok = True
     for row in results:
         mark = "[green]✓[/green]" if row.ok else "[red]✗[/red]"
